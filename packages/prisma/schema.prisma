@@ -576,7 +576,6 @@ model Team {
   createdAt              DateTime                @default(now())
   /// @zod.import(["import { teamMetadataSchema } from '../../zod-utils'"]).custom.use(teamMetadataSchema)
   metadata               Json?
-  rexWhatsApp            RexWhatsAppDelivery?
   theme                  String?
   rrResetInterval        RRResetInterval?        @default(MONTH)
   rrTimestampBasis       RRTimestampBasis        @default(CREATED_AT)
@@ -893,6 +892,7 @@ model Booking {
   seatsReferences        BookingSeat[]
   /// @zod.import(["import { bookingMetadataSchema } from '../../zod-utils'"]).custom.use(bookingMetadataSchema)
   metadata               Json?
+  rexWhatsApp            RexWhatsAppDelivery?
   isRecorded             Boolean                    @default(false)
   iCalUID                String?                    @default("")
   iCalSequence           Int                        @default(0)
