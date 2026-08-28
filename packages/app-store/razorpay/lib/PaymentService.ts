@@ -409,3 +409,17 @@ export class PaymentService implements IAbstractPaymentService {
         return expectedSignature === signature;
     }
 }
+
+/**
+ * Factory function that creates a Razorpay payment service instance.
+ *
+ * Core resolves payment apps through this export — see
+ * `handlePayment.ts`, which checks `"BuildPaymentService" in module`.
+ * The PR this app came from predates that contract and exported only the
+ * class, which fails the build with TS2339. Exporting the factory (rather
+ * than the class) also keeps internal types out of the emitted .d.ts,
+ * matching stripepayment, hitpay and the other payment apps.
+ */
+export function BuildPaymentService(credentials: { key: Prisma.JsonValue }): IAbstractPaymentService {
+    return new PaymentService(credentials);
+}
