@@ -7,6 +7,7 @@ import prisma from "@calcom/prisma";
 import { BookingStatus } from "@calcom/prisma/enums";
 import { paymentDataSelect } from "@calcom/prisma/selects/payment";
 import { EventTypeMetaDataSchema } from "@calcom/prisma/zod-utils";
+import type { inferSSRProps } from "@calcom/types/inferSSRProps";
 
 /**
  * Loads everything /payment/[uid] needs to render.
@@ -94,3 +95,7 @@ export const getServerSideProps = async (context: GetServerSidePropsContext) => 
     },
   };
 };
+
+// Inferred from the loader rather than hand-written: the Cal.diy stub hand-wrote
+// this type, so it silently drifted from what the query actually returns.
+export type PaymentPageProps = inferSSRProps<typeof getServerSideProps>;
