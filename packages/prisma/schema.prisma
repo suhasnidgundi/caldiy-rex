@@ -576,6 +576,7 @@ model Team {
   createdAt              DateTime                @default(now())
   /// @zod.import(["import { teamMetadataSchema } from '../../zod-utils'"]).custom.use(teamMetadataSchema)
   metadata               Json?
+  rexWhatsApp            RexWhatsAppDelivery?
   theme                  String?
   rrResetInterval        RRResetInterval?        @default(MONTH)
   rrTimestampBasis       RRTimestampBasis        @default(CREATED_AT)
@@ -2848,4 +2849,34 @@ model AttributeSyncFieldMapping {
 
   @@unique([integrationAttributeSyncId, attributeId])
   @@index([integrationAttributeSyncId])
+}
+
+/// WhatsApp delivery state for Rex bookings.
+///
+/// Deliberately its own table rather than a key inside Booking.metadata:
+/// handleConfirmation rewrites that column wholesale
+/// (`metadata: meetingUrl ? { videoCallUrl: meetingUrl } : {}`), which would
+/// erase the delivery flags and make the sweep send a customer a second copy of
+/// a confirmation they already received.
+model RexWhatsAppDelivery {
+  id                  Int       @id @default(autoincrement())
+  bookingId           Int       @unique
+  booking             Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  /// Set once the confirmation message has actually been accepted by OpenWA.
+  confirmationSentAt  DateTime?
+  /// Whether that confirmation carried the Meet link. If false, the booking is
+  /// still owed a follow-up once the link exists.
+  confirmationHadLink Boolean   @default(false)
+  linkFollowupSentAt  DateTime?
+  /// Retries are finite: production once reached 4,110 attempts against a
+  /// booking with an unreachable number, degrading the shared WhatsApp engine
+  /// for real customers on every pass.
+  attempts            Int       @default(0)
+  lastError           String?
+  deadLetteredAt      DateTime?
+  fulfilledAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([fulfilledAt, deadLetteredAt])
 }

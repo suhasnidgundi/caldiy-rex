@@ -13,6 +13,7 @@ import type {
     RazorpayPaymentStorageData
 } from "../lib/types";
 import { webhookEventSchema } from "../zod";
+import { confirmPaidBooking } from "../lib/confirmPaidBooking";
 
 const log = logger.getSubLogger({ prefix: ["razorpay-webhook"] });
 
@@ -256,19 +257,25 @@ async function handlePaymentCaptured(paymentEntity: RazorpayPaymentEntity) {
         currency: paymentEntity.currency,
     };
 
-    await prisma.$transaction([
-        prisma.payment.update({
-            where: { id: payment.id },
-            data: {
-                success: true,
-                data: updateData as unknown as Prisma.InputJsonValue,
-            },
-        }),
-        prisma.booking.update({
-            where: { id: payment.bookingId },
-            data: { paid: true },
-        }),
-    ]);
+    // Persist the Razorpay-specific fields first; handlePaymentSuccess does not
+    // know about them.
+    await prisma.payment.update({
+        where: { id: payment.id },
+        data: { data: updateData as unknown as Prisma.InputJsonValue },
+    });
+
+    // Marking the rows paid is NOT enough. handlePaymentSuccess is what actually
+    // confirms the booking: handleConfirmation() creates the Google Calendar
+    // event and Meet link, sendScheduledEmailsAndSMS() sends the confirmation,
+    // and BOOKING_PAID webhooks fire. This app previously just wrote
+    // payment.success/booking.paid directly, so a customer who paid got a booking
+    // stuck in `pending` with no calendar invite, no Meet link and no email.
+    // It also sets success/paid itself, so those writes are not repeated here.
+    await confirmPaidBooking({
+        paymentId: payment.id,
+        bookingId: payment.bookingId,
+        source: "webhook",
+    });
 
     log.info("Payment captured successfully", {
         orderId,
