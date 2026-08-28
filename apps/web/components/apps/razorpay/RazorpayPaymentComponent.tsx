@@ -1,14 +1,19 @@
 "use client";
 
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import z from "zod";
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { Button } from "@calcom/ui/components/button";
 
+// The payment prop mirrors exactly what PaymentPage passes to every payment
+// component; it deliberately does NOT carry the payment uid. This component is
+// only ever rendered on the /payment/[uid] route, where that route param IS the
+// payment uid (links are built as `/payment/${paymentUid}`), so it is read from
+// the route rather than requiring a prop the page cannot supply.
 interface IRazorpayPaymentComponentProps {
   payment: {
-    uid: string;
     data: unknown;
     amount: number;
     currency: string;
@@ -24,6 +29,8 @@ const RazorpayPaymentDataSchema = z.object({
 export const RazorpayPaymentComponent = (props: IRazorpayPaymentComponentProps) => {
   const { t } = useLocale();
   const { payment } = props;
+  const params = useParams<{ uid: string }>();
+  const paymentUid = params?.uid;
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
   useEffect(() => {
@@ -62,7 +69,7 @@ export const RazorpayPaymentComponent = (props: IRazorpayPaymentComponentProps) 
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_signature: response.razorpay_signature,
-            paymentUid: payment.uid,
+            paymentUid,
           }),
         })
           .then((res) => res.json())
