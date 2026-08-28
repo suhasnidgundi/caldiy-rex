@@ -14,6 +14,7 @@ export const paymentDataSelect = {
     select: {
       id: true,
       uid: true,
+      paid: true,
       description: true,
       title: true,
       startTime: true,

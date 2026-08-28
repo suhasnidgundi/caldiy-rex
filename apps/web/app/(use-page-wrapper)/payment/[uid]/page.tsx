@@ -4,6 +4,7 @@ import type { PageProps } from "app/_types";
 import { _generateMetadata } from "app/_utils";
 import { withAppDirSsr } from "app/WithAppDirSsr";
 import { cookies, headers } from "next/headers";
+import { getServerSideProps } from "@calcom/features/payments/lib/getPaymentPageProps";
 import PaymentPage from "./PaymentPage";
 
 type PaymentPageProps = {
@@ -58,32 +59,7 @@ export const generateMetadata = async ({ params, searchParams }: PageProps) => {
   );
 };
 
-const getData = withAppDirSsr<PaymentPageProps>(async () => ({
-  props: {
-    payment: {
-      id: 0,
-      success: false,
-      refunded: false,
-      amount: 0,
-      currency: "usd",
-      paymentOption: null,
-      data: {},
-      appId: null,
-    },
-    booking: {
-      id: 0,
-      uid: "",
-      title: "",
-      startTime: "",
-      endTime: "",
-      status: "",
-      paid: false,
-      location: null,
-    },
-    eventType: { id: 0, title: "", length: 0, price: 0, currency: "usd", metadata: null },
-    profile: { theme: null, hideBranding: false },
-  },
-}));
+const getData = withAppDirSsr<PaymentPageProps>(getServerSideProps);
 
 const ServerPage = async ({ params, searchParams }: PageProps) => {
   const props = await getData(
