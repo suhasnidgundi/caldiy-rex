@@ -23,6 +23,18 @@ const log = logger.getSubLogger({ prefix: ["razorpay:confirmPaidBooking"] });
  * it actually changed, and only the caller that changed one proceeds. A
  * read-then-check would leave a window for both callers to pass.
  */
+/**
+ * handlePaymentSuccess ends its happy path with `throw new HttpError({ statusCode: 200 })`
+ * so the API route can turn it straight into a response. That throw is success,
+ * not failure — letting it propagate skipped the WhatsApp send on every paid
+ * booking and released the claim that exists to stop double-confirmation.
+ */
+function isSuccessSignal(error: unknown): boolean {
+  return (
+    typeof error === "object" && error !== null && (error as { statusCode?: unknown }).statusCode === 200
+  );
+}
+
 export async function confirmPaidBooking(params: {
   paymentId: number;
   bookingId: number;
@@ -45,7 +57,11 @@ export async function confirmPaidBooking(params: {
   });
 
   try {
-    await handlePaymentSuccess({ paymentId, bookingId, appSlug: "razorpay", traceContext });
+    try {
+      await handlePaymentSuccess({ paymentId, bookingId, appSlug: "razorpay", traceContext });
+    } catch (error) {
+      if (!isSuccessSignal(error)) throw error;
+    }
 
     // Best-effort: the customer has paid and the booking is confirmed, so a
     // WhatsApp hiccup must never fail this call or release the claim. Anything
