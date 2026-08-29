@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import z from "zod";
 
@@ -19,6 +19,11 @@ interface IRazorpayPaymentComponentProps {
     currency: string;
   };
 }
+/** How often to re-check whether the payment has been confirmed server-side. */
+const CONFIRMATION_POLL_MS = 3000;
+/** Stop polling eventually; UPI collect requests expire well inside this. */
+const CONFIRMATION_POLL_TIMEOUT_MS = 120000;
+
 const RazorpayPaymentDataSchema = z.object({
   orderId: z.string(),
   keyId: z.string(),
@@ -32,6 +37,7 @@ export const RazorpayPaymentComponent = (props: IRazorpayPaymentComponentProps) 
   const params = useParams<{ uid: string }>();
   const paymentUid = params?.uid;
   const [scriptLoaded, setScriptLoaded] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -43,6 +49,30 @@ export const RazorpayPaymentComponent = (props: IRazorpayPaymentComponentProps) 
       document.body.removeChild(script);
     };
   }, []);
+
+  // A UPI "intent" payment hands the browser off to the customer's UPI app, and
+  // coming back can tear down this page's JS context -- so Razorpay's `handler`
+  // callback, the only thing that navigates to the booking, never runs. The
+  // payment still completes and the webhook still confirms it server-side, so
+  // without this the customer sits on a "Pay" button they already paid, and only
+  // a manual refresh reveals the booking.
+  //
+  // This component is rendered only while the payment is unconfirmed, so simply
+  // re-fetching the server view is enough: once it reports success the parent
+  // stops rendering us and the paid state appears on its own.
+  useEffect(() => {
+    let elapsed = 0;
+    const id = setInterval(() => {
+      elapsed += CONFIRMATION_POLL_MS;
+      if (elapsed >= CONFIRMATION_POLL_TIMEOUT_MS) {
+        clearInterval(id);
+        return;
+      }
+      router.refresh();
+    }, CONFIRMATION_POLL_MS);
+    return () => clearInterval(id);
+  }, [router]);
+
   const parsedData = RazorpayPaymentDataSchema.safeParse(payment.data);
 
   if (!parsedData.success) {
