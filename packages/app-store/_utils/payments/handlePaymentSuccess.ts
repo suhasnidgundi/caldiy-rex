@@ -77,6 +77,18 @@ export async function handlePaymentSuccess(params: {
       ? await eventManager.create(evt)
       : placeholderCreatedEvent;
     bookingData.references = { create: scheduleResult.referencesToCreate };
+
+    // handleConfirmation writes videoCallUrl on the normal (!isConfirmed) path,
+    // but this branch bypasses it. Without this, a retry after a transient
+    // Google API failure loses the Meet link permanently — the calendar event
+    // is created but its URL is never persisted to booking.metadata.
+    const videoCallUrl = getVideoCallUrlFromCalEvent(evt) || evt.videoCallData?.url || "";
+    if (videoCallUrl) {
+      bookingData.metadata = {
+        ...(typeof booking.metadata === "object" && booking.metadata !== null ? booking.metadata : {}),
+        videoCallUrl,
+      };
+    }
   }
 
   const requiresConfirmation = doesBookingRequireConfirmation({
